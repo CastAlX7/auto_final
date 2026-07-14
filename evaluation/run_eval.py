@@ -34,7 +34,9 @@ class EvaluationRunner:
         metrics = EvalMetrics()
 
         results: list[dict[str, Any]] = []
-        for case in cases:
+        for i, case in enumerate(cases):
+            if i > 0:
+                await asyncio.sleep(5)
             from shared.graph_state import CarSaleState
 
             state = CarSaleState(car_data=dict(case["input"]))
