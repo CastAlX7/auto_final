@@ -55,15 +55,17 @@ class EvaluationRunner:
                     latency_ms=latency_ms,
                     cost_usd=cost_est,
                 )
-                results.append(
-                    {
-                        "case_id": case["id"],
-                        "status": "ok",
-                        "apto_venta": car_data.get("apto_venta"),
-                        "precio_mercado": car_data.get("precio_mercado"),
-                        "latency_ms": round(latency_ms, 1),
-                    }
-                )
+                entry = {
+                    "case_id": case["id"],
+                    "status": "ok",
+                    "apto_venta": car_data.get("apto_venta"),
+                    "precio_mercado": car_data.get("precio_mercado"),
+                    "latency_ms": round(latency_ms, 1),
+                }
+                if car_data.get("error"):
+                    entry["status"] = "agent_error"
+                    entry["error"] = car_data["error"][:300]
+                results.append(entry)
             except Exception as e:
                 latency_ms = (time.perf_counter() - start) * 1000
                 results.append(
