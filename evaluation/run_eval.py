@@ -36,7 +36,7 @@ class EvaluationRunner:
         results: list[dict[str, Any]] = []
         for i, case in enumerate(cases):
             if i > 0:
-                await asyncio.sleep(12)
+                await asyncio.sleep(5)
             from shared.graph_state import CarSaleState
 
             state = CarSaleState(car_data=dict(case["input"]))

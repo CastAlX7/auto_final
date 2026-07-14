@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import re
 from typing import Any
@@ -197,15 +196,13 @@ class AcquisitionAgent:
         result: AcquisitionResult | None = None
         last_error: Exception | None = None
         llm = self.llm_vision if image_url else self.llm
-        for attempt in range(3):
+        for _ in range(3):
             try:
                 result = await llm.ainvoke(messages)
                 break
             except Exception as e:
                 last_error = e
                 result = None
-                if attempt < 2:
-                    await asyncio.sleep(10)
 
         if result is None:
             car_data["error"] = (
