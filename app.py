@@ -282,11 +282,12 @@ with st.sidebar:
                            width="stretch", disabled=not groq_key)
 
 # ─── Tabs ──────────────────────────────────────────────────────────────────────
-tab_search, tab_manual, tab_db, tab_dash, tab_cfg = st.tabs([
+tab_search, tab_manual, tab_db, tab_dash, tab_monitor, tab_cfg = st.tabs([
     "🔍 Buscar Ofertas",
     "➕ Agregar Manual",
     "📊 Mis Oportunidades",
     "📈 Dashboard",
+    "🛡️ Monitoreo",
     "⚙️ Configuración",
 ])
 
@@ -895,7 +896,147 @@ with tab_dash:
                 st.plotly_chart(fig4, width="stretch")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 5 — CONFIGURACIÓN
+# TAB 5 — MONITOREO
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_monitor:
+    st.subheader("🛡️ Monitoreo del sistema")
+
+    from monitoring.trace_logger import TraceLogger
+    from monitoring.cost_tracker import CostTracker
+    from monitoring.alerts import AlertManager
+    from monitoring.security_logger import SecurityLogger
+    from monitoring.finops import FinOpsReporter
+    from monitoring.incident_manager import IncidentManager
+
+    _tracer = TraceLogger()
+    _cost_tracker = CostTracker()
+    _alert_mgr = AlertManager()
+    _sec_logger = SecurityLogger()
+    _finops = FinOpsReporter(_cost_tracker)
+    _incidents = IncidentManager()
+
+    langsmith_ok = _tracer.is_configured()
+    langsmith_project = os.getenv("LANGSMITH_PROJECT", "VentasAutomatizacion")
+
+    if langsmith_ok:
+        st.caption(f"Observabilidad via **LangSmith** — proyecto: `{langsmith_project}` · "
+                   f"[Abrir dashboard ↗](https://smith.langchain.com)")
+    else:
+        st.warning("LangSmith no está configurado. Ve a **Configuración** y agrega tu API Key "
+                   "para activar la observabilidad completa.")
+
+    # ── KPIs operativos ──────────────────────────────────────────────────
+    mon_stats = _tracer.get_stats(hours=24)
+    mon_cost = _cost_tracker.get_monthly_spend()
+
+    mk1, mk2, mk3, mk4 = st.columns(4)
+    mk1.metric("Llamadas LLM (24h)", mon_stats["total_calls"])
+    mk2.metric("Latencia prom.", f"{mon_stats['avg_latency_ms']:,.0f} ms")
+    mk3.metric("Tasa de error", f"{mon_stats['error_rate']:.1f}%")
+    mk4.metric("Tokens totales (24h)", f"{mon_stats['total_tokens']:,}")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Costos ────────────────────────────────────────────────────────────
+    st.markdown("#### 💰 FinOps — Costos del mes")
+    fc1, fc2, fc3, fc4 = st.columns(4)
+    fc1.metric("Gastado", f"${mon_cost['spent_usd']:.4f}")
+    fc2.metric("Presupuesto", f"${mon_cost['budget_usd']:.2f}")
+    fc3.metric("Restante", f"${mon_cost['remaining_usd']:.4f}")
+    fc4.metric("Uso", f"{mon_cost['usage_pct']:.1f}%")
+
+    cost_by_agent = _cost_tracker.get_cost_by_agent(days=30)
+    if cost_by_agent:
+        st.markdown("**Costo por agente (último mes)**")
+        df_cost = pd.DataFrame(cost_by_agent)
+        df_cost.columns = ["Agente", "Llamadas", "Costo USD", "Tokens"]
+        st.dataframe(df_cost, hide_index=True, use_container_width=True)
+
+    daily = _finops.daily_trend(days=14)
+    if daily:
+        st.markdown("**Tendencia diaria de costos**")
+        df_daily = pd.DataFrame(daily)
+        fig_cost = px.area(df_daily, x="date", y="cost_usd",
+                           color_discrete_sequence=["#f59e0b"])
+        fig_cost.update_layout(margin=dict(t=10, b=10), height=220,
+                               xaxis_title="", yaxis_title="Costo USD")
+        st.plotly_chart(fig_cost, use_container_width=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Alertas activas ───────────────────────────────────────────────────
+    st.markdown("#### 🔔 Alertas activas")
+    active_alerts = _alert_mgr.get_active(limit=20)
+    if not active_alerts:
+        st.success("✅ Sin alertas activas — todo operando con normalidad.")
+    else:
+        for alert in active_alerts:
+            level_icon = {"info": "ℹ️", "warning": "⚠️", "critical": "🚨"}.get(alert["level"], "•")
+            st.warning(f"{level_icon} **[{alert['category'].upper()}]** {alert['message']}  \n"
+                       f"_({alert['timestamp'][:19]})_")
+
+    alert_history = _alert_mgr.get_history(days=7)
+    if alert_history:
+        with st.expander(f"📜 Historial de alertas ({len(alert_history)} últimos 7 días)"):
+            for ah in alert_history[:20]:
+                status_icon = "✅" if ah["resolved"] else "🔴"
+                st.caption(f"{status_icon} [{ah['level']}] {ah['category']}: {ah['message']} — {ah['timestamp'][:19]}")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Seguridad ─────────────────────────────────────────────────────────
+    st.markdown("#### 🔒 Seguridad")
+    sec_summary = _sec_logger.get_summary(days=7)
+    sc1, sc2 = st.columns(2)
+    sc1.metric("Eventos de seguridad (7d)", sec_summary["total_events"])
+    sc2.metric("Intentos bloqueados", sec_summary["blocked_count"])
+
+    sec_events = _sec_logger.get_events(days=7, limit=10)
+    if sec_events:
+        with st.expander("🔍 Últimos eventos de seguridad"):
+            for ev in sec_events:
+                blocked_tag = "🛑 BLOQUEADO" if ev["blocked"] else "⚠️"
+                st.caption(f"{blocked_tag} [{ev['severity']}] {ev['event_type']}: {ev['details']} — {ev['timestamp'][:19]}")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Incidentes ────────────────────────────────────────────────────────
+    st.markdown("#### 🚨 Incidentes")
+    active_incidents = _incidents.get_active()
+    if not active_incidents:
+        st.success("✅ Sin incidentes activos.")
+    else:
+        for inc in active_incidents:
+            sev_color = {"high": "🔴", "critical": "🔴", "medium": "🟡", "low": "🟢"}.get(inc["severity"], "•")
+            st.error(f"{sev_color} **{inc['title']}** — Estado: {inc['status']}  \n"
+                     f"Categoría: {inc['category']} | Creado: {inc['created_at'][:19]}")
+
+    incident_history = _incidents.get_history(limit=10)
+    if incident_history:
+        with st.expander(f"📋 Historial de incidentes ({len(incident_history)})"):
+            for ih in incident_history:
+                status_icon = "✅" if ih["status"] in ("resolved", "postmortem") else "🔄"
+                cause = f" — Causa: {ih['root_cause']}" if ih.get("root_cause") else ""
+                st.caption(f"{status_icon} [{ih['severity']}] {ih['title']}{cause} — {ih['created_at'][:19]}")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Trazas recientes (LangSmith) ─────────────────────────────────────
+    st.markdown("#### 📡 Trazas recientes")
+    if not langsmith_ok:
+        st.info("Configura LangSmith para ver las trazas de cada llamada LLM.")
+    else:
+        recent_traces = _tracer.get_traces(limit=20)
+        if not recent_traces:
+            st.info("Aún no hay trazas. Se registrarán automáticamente al analizar autos.")
+        else:
+            df_traces = pd.DataFrame(recent_traces)
+            display_cols = ["timestamp", "agent", "car_id", "total_tokens", "latency_ms", "status", "model"]
+            available = [c for c in display_cols if c in df_traces.columns]
+            st.dataframe(df_traces[available], hide_index=True, use_container_width=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 6 — CONFIGURACIÓN
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_cfg:
     st.subheader("⚙️ Configuración")
@@ -911,6 +1052,26 @@ with tab_cfg:
                 st.toast("✅ Guardado. Recarga la página para aplicar.")
             else:
                 st.toast("ℹ️ No se escribió ningún valor — se conserva el actual.")
+
+    with st.expander("📊 Observabilidad (LangSmith)", expanded=not bool(os.getenv("LANGSMITH_API_KEY"))):
+        st.markdown(
+            "LangSmith traza automáticamente todas las llamadas LLM de LangChain/LangGraph, "
+            "registrando tokens, latencia, inputs/outputs y errores.\n\n"
+            "**Pasos:** Crea una cuenta en [smith.langchain.com](https://smith.langchain.com), "
+            "genera un API Key, y pégala abajo."
+        )
+        _cfg_status(os.getenv("LANGSMITH_API_KEY"))
+        new_ls_key = _secret_input("LangSmith API Key", os.getenv("LANGSMITH_API_KEY"), "cfg_ls_key")
+        new_ls_project = st.text_input(
+            "Nombre del proyecto", value=os.getenv("LANGSMITH_PROJECT", "VentasAutomatizacion"),
+            key="cfg_ls_project",
+        )
+        if st.button("Guardar LangSmith", key="save_ls"):
+            if new_ls_key:
+                save_env("LANGSMITH_API_KEY", new_ls_key)
+            save_env("LANGSMITH_PROJECT", new_ls_project)
+            save_env("LANGSMITH_TRACING", "true")
+            st.toast("✅ Guardado. Recarga la página para aplicar.")
 
     with st.expander("🗄️ Base de datos Airtable", expanded=not airtable.is_configured()):
         st.markdown("Donde se guardan todos los autos aptos que encuentres.")
