@@ -1,4 +1,5 @@
 """Tests for the evaluation module — golden set validation and metrics."""
+
 from __future__ import annotations
 
 from evaluation.golden_set import GOLDEN_SET
@@ -25,7 +26,11 @@ def test_metrics_perfect_score():
     metrics = EvalMetrics()
     case = {
         "id": "T-01",
-        "expected": {"apto_venta": True, "precio_mercado_min": 10000, "precio_mercado_max": 15000},
+        "expected": {
+            "apto_venta": True,
+            "precio_mercado_min": 10000,
+            "precio_mercado_max": 15000,
+        },
     }
     metrics.add_result(
         case=case,
@@ -58,7 +63,11 @@ def test_metrics_price_out_of_range():
     metrics = EvalMetrics()
     case = {
         "id": "T-03",
-        "expected": {"apto_venta": True, "precio_mercado_min": 10000, "precio_mercado_max": 15000},
+        "expected": {
+            "apto_venta": True,
+            "precio_mercado_min": 10000,
+            "precio_mercado_max": 15000,
+        },
     }
     metrics.add_result(
         case=case,

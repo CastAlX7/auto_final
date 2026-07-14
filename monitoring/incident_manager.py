@@ -3,9 +3,9 @@
 Lifecycle: detected → triaging → mitigating → resolved → postmortem.
 Each incident links to the alert that triggered it.
 """
+
 from __future__ import annotations
 
-import json
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -77,7 +77,17 @@ class IncidentManager:
                 """INSERT INTO incidents
                    (id, created_at, updated_at, status, severity, category, title, description, alert_id)
                    VALUES (?,?,?,?,?,?,?,?,?)""",
-                (incident_id, now, now, "detected", severity, category, title, description, alert_id),
+                (
+                    incident_id,
+                    now,
+                    now,
+                    "detected",
+                    severity,
+                    category,
+                    title,
+                    description,
+                    alert_id,
+                ),
             )
             conn.commit()
         return incident_id
@@ -119,8 +129,13 @@ class IncidentManager:
         ).fetchall()
         return [
             {
-                "id": r[0], "created_at": r[1], "status": r[2], "severity": r[3],
-                "category": r[4], "title": r[5], "description": r[6],
+                "id": r[0],
+                "created_at": r[1],
+                "status": r[2],
+                "severity": r[3],
+                "category": r[4],
+                "title": r[5],
+                "description": r[6],
             }
             for r in rows
         ]
@@ -134,8 +149,14 @@ class IncidentManager:
         ).fetchall()
         return [
             {
-                "id": r[0], "created_at": r[1], "resolved_at": r[2], "status": r[3],
-                "severity": r[4], "category": r[5], "title": r[6], "root_cause": r[7],
+                "id": r[0],
+                "created_at": r[1],
+                "resolved_at": r[2],
+                "status": r[3],
+                "severity": r[4],
+                "category": r[5],
+                "title": r[6],
+                "root_cause": r[7],
             }
             for r in rows
         ]

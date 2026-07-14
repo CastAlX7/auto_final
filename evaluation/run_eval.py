@@ -4,13 +4,13 @@ Usage:
     python -m evaluation.run_eval              # requires GROQ_API_KEY env var
     python -m evaluation.run_eval --dry-run    # validates golden set structure only
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import sys
 import time
-from pathlib import Path
 from typing import Any
 
 from evaluation.golden_set import GOLDEN_SET
@@ -36,6 +36,7 @@ class EvaluationRunner:
         results: list[dict[str, Any]] = []
         for case in cases:
             from shared.graph_state import CarSaleState
+
             state = CarSaleState(car_data=dict(case["input"]))
 
             start = time.perf_counter()
@@ -52,21 +53,25 @@ class EvaluationRunner:
                     latency_ms=latency_ms,
                     cost_usd=cost_est,
                 )
-                results.append({
-                    "case_id": case["id"],
-                    "status": "ok",
-                    "apto_venta": car_data.get("apto_venta"),
-                    "precio_mercado": car_data.get("precio_mercado"),
-                    "latency_ms": round(latency_ms, 1),
-                })
+                results.append(
+                    {
+                        "case_id": case["id"],
+                        "status": "ok",
+                        "apto_venta": car_data.get("apto_venta"),
+                        "precio_mercado": car_data.get("precio_mercado"),
+                        "latency_ms": round(latency_ms, 1),
+                    }
+                )
             except Exception as e:
                 latency_ms = (time.perf_counter() - start) * 1000
-                results.append({
-                    "case_id": case["id"],
-                    "status": "error",
-                    "error": str(e)[:200],
-                    "latency_ms": round(latency_ms, 1),
-                })
+                results.append(
+                    {
+                        "case_id": case["id"],
+                        "status": "error",
+                        "error": str(e)[:200],
+                        "latency_ms": round(latency_ms, 1),
+                    }
+                )
 
         report = metrics.compute()
         report["run_results"] = results
@@ -96,6 +101,7 @@ class EvaluationRunner:
 
 def main() -> None:
     import os
+
     try:
         sys.stdout.reconfigure(encoding="utf-8")
     except (AttributeError, ValueError):

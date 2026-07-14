@@ -3,6 +3,7 @@
 Implements §8.8 (FinOps) and §2.4 (cost < $0.01 per query).
 Reads token usage from LangSmith and applies model-specific pricing.
 """
+
 from __future__ import annotations
 
 import os
@@ -11,7 +12,10 @@ from typing import Any
 
 MODEL_PRICING: dict[str, dict[str, float]] = {
     "llama-3.3-70b-versatile": {"input_per_1m": 0.59, "output_per_1m": 0.79},
-    "meta-llama/llama-4-scout-17b-16e-instruct": {"input_per_1m": 0.20, "output_per_1m": 0.20},
+    "meta-llama/llama-4-scout-17b-16e-instruct": {
+        "input_per_1m": 0.20,
+        "output_per_1m": 0.20,
+    },
     "llama-3.1-8b-instant": {"input_per_1m": 0.05, "output_per_1m": 0.08},
 }
 
@@ -25,21 +29,29 @@ def _langsmith_available() -> bool:
 class CostTracker:
     """Computes costs from LangSmith trace data with budget alerting."""
 
-    def __init__(self, monthly_budget_usd: float = 50.0, project_name: str | None = None) -> None:
+    def __init__(
+        self, monthly_budget_usd: float = 50.0, project_name: str | None = None
+    ) -> None:
         self.monthly_budget_usd = monthly_budget_usd
-        self._project = project_name or os.getenv("LANGSMITH_PROJECT", "VentasAutomatizacion")
+        self._project = project_name or os.getenv(
+            "LANGSMITH_PROJECT", "VentasAutomatizacion"
+        )
         self._client = None
 
     def _get_client(self):
         if self._client is None:
             from langsmith import Client
+
             self._client = Client()
         return self._client
 
     @staticmethod
     def estimate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
         pricing = MODEL_PRICING.get(model, DEFAULT_PRICING)
-        cost = (prompt_tokens * pricing["input_per_1m"] + completion_tokens * pricing["output_per_1m"]) / 1_000_000
+        cost = (
+            prompt_tokens * pricing["input_per_1m"]
+            + completion_tokens * pricing["output_per_1m"]
+        ) / 1_000_000
         return round(cost, 6)
 
     def _get_runs_since(self, since: datetime) -> list:
@@ -47,11 +59,13 @@ class CostTracker:
             return []
         try:
             client = self._get_client()
-            return list(client.list_runs(
-                project_name=self._project,
-                execution_order=1,
-                start_time=since,
-            ))
+            return list(
+                client.list_runs(
+                    project_name=self._project,
+                    execution_order=1,
+                    start_time=since,
+                )
+            )
         except Exception:
             return []
 
@@ -83,9 +97,17 @@ class CostTracker:
         summary = self.get_monthly_spend()
         pct = summary["usage_pct"]
         if pct >= 100:
-            return {"level": "critical", "message": f"Presupuesto mensual AGOTADO ({pct:.0f}%)", **summary}
+            return {
+                "level": "critical",
+                "message": f"Presupuesto mensual AGOTADO ({pct:.0f}%)",
+                **summary,
+            }
         if pct >= 90:
-            return {"level": "warning", "message": f"Presupuesto al {pct:.0f}% — quedan ${summary['remaining_usd']:.2f}", **summary}
+            return {
+                "level": "warning",
+                "message": f"Presupuesto al {pct:.0f}% — quedan ${summary['remaining_usd']:.2f}",
+                **summary,
+            }
         if pct >= 70:
             return {"level": "info", "message": f"Presupuesto al {pct:.0f}%", **summary}
         return None
@@ -107,10 +129,15 @@ class CostTracker:
             by_agent[name]["total_tokens"] += pt + ct
 
         return [
-            {"agent": name, "calls": data["calls"],
-             "total_cost_usd": round(data["total_cost_usd"], 4),
-             "total_tokens": data["total_tokens"]}
-            for name, data in sorted(by_agent.items(), key=lambda x: x[1]["total_cost_usd"], reverse=True)
+            {
+                "agent": name,
+                "calls": data["calls"],
+                "total_cost_usd": round(data["total_cost_usd"], 4),
+                "total_tokens": data["total_tokens"],
+            }
+            for name, data in sorted(
+                by_agent.items(), key=lambda x: x[1]["total_cost_usd"], reverse=True
+            )
         ]
 
     def get_avg_cost_per_query(self, days: int = 7) -> float:
@@ -119,7 +146,11 @@ class CostTracker:
         if not runs:
             return 0.0
         total_cost = sum(
-            self.estimate_cost("llama-3.3-70b-versatile", r.prompt_tokens or 0, r.completion_tokens or 0)
+            self.estimate_cost(
+                "llama-3.3-70b-versatile",
+                r.prompt_tokens or 0,
+                r.completion_tokens or 0,
+            )
             for r in runs
         )
         return round(total_cost / len(runs), 6)

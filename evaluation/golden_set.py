@@ -6,6 +6,7 @@ Each case has:
   - expected: dict with expected fields from the acquisition agent
   - notes: which requirement this validates
 """
+
 from __future__ import annotations
 
 GOLDEN_SET: list[dict] = [

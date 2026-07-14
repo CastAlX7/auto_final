@@ -2,6 +2,7 @@
 
 Implements §8.8 (Escalado y FinOps) using LangSmith trace data.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -52,7 +53,11 @@ class FinOpsReporter:
             by_day[day]["tokens"] += pt + ct
 
         return [
-            {"date": day, "calls": data["calls"],
-             "cost_usd": round(data["cost_usd"], 4), "tokens": data["tokens"]}
+            {
+                "date": day,
+                "calls": data["calls"],
+                "cost_usd": round(data["cost_usd"], 4),
+                "tokens": data["tokens"],
+            }
             for day, data in sorted(by_day.items())
         ]

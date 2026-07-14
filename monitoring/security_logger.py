@@ -2,6 +2,7 @@
 
 Implements §3.9 (security) and §8.6 (security monitoring) from the template.
 """
+
 from __future__ import annotations
 
 import re
@@ -104,7 +105,16 @@ class SecurityLogger:
                 """INSERT INTO security_events
                    (id, timestamp, event_type, severity, source, details, user_input, blocked)
                    VALUES (?,?,?,?,?,?,?,?)""",
-                (event_id, now, event_type, severity, source, details, user_input[:1000], int(blocked)),
+                (
+                    event_id,
+                    now,
+                    event_type,
+                    severity,
+                    source,
+                    details,
+                    user_input[:1000],
+                    int(blocked),
+                ),
             )
             conn.commit()
         return event_id
@@ -121,8 +131,13 @@ class SecurityLogger:
         ).fetchall()
         return [
             {
-                "id": r[0], "timestamp": r[1], "event_type": r[2], "severity": r[3],
-                "source": r[4], "details": r[5], "blocked": bool(r[6]),
+                "id": r[0],
+                "timestamp": r[1],
+                "event_type": r[2],
+                "severity": r[3],
+                "source": r[4],
+                "details": r[5],
+                "blocked": bool(r[6]),
             }
             for r in rows
         ]
